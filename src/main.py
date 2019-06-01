@@ -1,18 +1,14 @@
-import gc
 import os
 import random
-import tensorflow
 import time
 from builtins import range
 
 import numpy
-from keras.activations import selu, relu
-from keras.backend import get_session, clear_session, set_session
-from keras.layers import Input, Dense, Reshape, Flatten, GaussianNoise, UpSampling2D
+from keras.layers import Input, Dense, Reshape, Flatten, GaussianNoise
 from keras.layers import BatchNormalization, Activation
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import Conv2D, Conv2DTranspose
-from keras.models import Sequential, Model
+from keras.models import Sequential
 from keras.optimizers import Adam
 from PIL import Image
 
@@ -50,22 +46,14 @@ def build_generator(z_dim):
     model = Sequential()
     # Reshape input into 8x8x256 tensor via a fully connected layer
     model.add(Dense(2048 * 1 * 1, input_shape=(z_dim,)))
-    # model.add(Activation('selu'))
-    # model.add(BatchNormalization(momentum=0.5))
     # Leaky ReLU
 
     model.add(Reshape((1, 1, 2048)))
+    model.add(GaussianNoise(0.1))
     model.add(Conv2DTranspose(
         2048, kernel_size=4))
 
     # # Transposed convolution layer, from 8x8x256 into 16x16x128 tensor
-    # model.add(Conv2DTranspose(
-    #     128, kernel_size=3, strides=2, padding='same'))
-    # # model.add(Conv2DTranspose(
-    # #     128, kernel_size=3, strides=2, padding='same'))
-    #
-    # # Batch normalization
-    # model.add(BatchNormalization(momentum=0.5))
     # # Leaky ReLU
     model.add(Activation('relu'))
 
@@ -77,10 +65,7 @@ def build_generator(z_dim):
     model.add(BatchNormalization(momentum=0.5))
 
     # Leaky ReLU
-    # model.add(LeakyReLU(alpha=0.2))
     model.add(Activation('relu'))
-    # model.add(UpSampling2D())
-    # model.add(Activation('selu'))
 
     # Transposed convolution layer, from 32x32x64 to 64x64x32 tensor
     model.add(Conv2DTranspose(
@@ -89,8 +74,7 @@ def build_generator(z_dim):
     model.add(BatchNormalization(momentum=0.5))
     # Leaky ReLU
     model.add(Activation('relu'))
-    # model.add(UpSampling2D())
-    # model.add(Activation('selu'))
+
     # Transposed convolution layer, from 32x32x64 to 64x64x32 tensor
 
     model.add(Conv2DTranspose(
@@ -98,24 +82,21 @@ def build_generator(z_dim):
     # Batch normalization
     model.add(BatchNormalization(momentum=0.5))
     # Leaky ReLU
-    # model.add(Activation('selu'))
+
     model.add(Activation('relu'))
-    # model.add(UpSampling2D())
     model.add(Conv2DTranspose(
         128, kernel_size=5, strides=2, padding='same'))
     # Batch normalization
     model.add(BatchNormalization(momentum=0.5))
     # Leaky ReLU
-    # model.add(Activation('selu'))
     model.add(Activation('relu'))
     model.add(Conv2DTranspose(
         64, kernel_size=5, strides=2, padding='same'))
     # Batch normalization
     model.add(BatchNormalization(momentum=0.5))
     # Leaky ReLU
-    # model.add(Activation('selu'))
+
     model.add(Activation('relu'))
-    # model.add(UpSampling2D())
     # Transposed convolution layer, from 64x64x32 to 128x128x3 tensor
     model.add(Conv2DTranspose(
         channels, kernel_size=5, strides=1, padding='same'))
@@ -162,24 +143,20 @@ def build_discriminator(img_shape):
     model.add(Conv2D(256, kernel_size=4, strides=2,
                      padding='same'))
 
-    model.add(GaussianNoise(0.1))
     model.add(LeakyReLU(alpha=0.2))
+    model.add(GaussianNoise(0.1))
+    model.add(BatchNormalization(momentum=0.5))
     # Convolutional layer, from 8x8x64 tensor into 4x4x64 tensor
     model.add(Conv2D(512, kernel_size=4, strides=2,
                      padding='same'))
 
-    model.add(GaussianNoise(0.1))
     model.add(LeakyReLU(alpha=0.2))
+    model.add(GaussianNoise(0.1))
+    model.add(BatchNormalization(momentum=0.5))
     # Convolutional layer, from 8x8x64 tensor into 4x4x64 tensor
     model.add(Conv2D(1024, kernel_size=4, strides=2,
                      padding='same'))
-    # Batch normalization
-    # model.add(BatchNormalization(momentum=0.5))
-    # # Leaky ReLU
-    # model.add(Activation('selu'))
-    # model.add(Conv2D(256, kernel_size=4, strides=1,
-    #                  padding='same'))
-    # Batch normalization
+
     # Flatten the tensor and apply sigmoid activation function
     model.add(Flatten())
     model.add(Dense(1, activation='sigmoid'))
@@ -232,96 +209,86 @@ def pillow_images_to_normalized_rgb(pillow_image):
 count = -1
 
 
-def train(iterations, batch_size, sample_interval):
+def train(epochs, batch_size, sample_interval):
     global count
     # Load the dataset
     load_training_images()
-    # Labels for real and fake examples
-    # real = np.ones(batch_size)
-    # fake = np.zeros(batch_size)
+    batch_iterations_per_epoch = int(len(training_images) // batch_size)
+    counter = -1
 
-    # idx = np.random.randint(0, pillow_images_to_normalized_rgb(training_images[0]).shape[0], 1000)
-    #
-    # converted_imgs = []
-    # for i in range(0, len(idx)):
-    #     converted_imgs.append(pillow_images_to_normalized_rgb(training_images[idx[i]]))
-    # converted_imgs = numpy.array(converted_imgs)
-    #
-    # real = (np.ones(1000) -
-    #         np.random.random_sample(1000) * 0.1)
-    #
-    # discriminator.trainable = True
-    # discriminator.train_on_batch(converted_imgs, real)
+    for ep in range(epochs):
 
-    for iteration in range(iterations):
+        random.shuffle(training_images)
 
-        # -------------------------
-        #  Train the Discriminator
-        # -------------------------
+        for it in range(batch_iterations_per_epoch):
 
-        # Select a random batch of real images
+            counter += 1
 
-        real = (np.ones(batch_size) -
-                np.random.random_sample(batch_size) * 0.1)
-        fake = np.random.random_sample(batch_size) * 0.1
+            # -------------------------
+            #  Train the Discriminator
+            # -------------------------
 
-        idx = np.random.randint(0, pillow_images_to_normalized_rgb(training_images[0]).shape[0], batch_size)
+            # Select a random batch of real images
 
-        converted_imgs = []
-        for i in range(0, len(idx)):
-            converted_imgs.append(pillow_images_to_normalized_rgb(training_images[idx[i]]))
-        converted_imgs = numpy.array(converted_imgs)
+            real = (np.ones(batch_size) -
+                    np.random.random_sample(batch_size) * 0.1)
+            fake = np.random.random_sample(batch_size) * 0.1
 
-        # Generate a batch of fake images
-        z = np.random.normal(0, 1, (batch_size, z_dim))
-        gen_imgs = generator.predict(z)
+            converted_imgs = []
+            for i in range(it * batch_size, it * batch_size + batch_size):
+                converted_imgs.append(pillow_images_to_normalized_rgb(training_images[i]))
+            converted_imgs = numpy.array(converted_imgs)
 
-        # Discriminator loss
+            # Generate a batch of fake images
+            z = np.random.normal(0, 1, (batch_size, z_dim))
+            gen_imgs = generator.predict(z)
 
-        # if last_d_loss > 0.100000:
-        discriminator.trainable = True
+            # Discriminator loss
 
-        actual_real = real
-        actual_fake = fake
+            # if last_d_loss > 0.100000:
+            discriminator.trainable = True
 
-        count += 1
+            actual_real = real
+            actual_fake = fake
 
-        if count == 10:
-            actual_real = fake
-            actual_fake = real
-            count = -1
+            count += 1
 
-        d_loss_real = discriminator.train_on_batch(converted_imgs, actual_real)
-        d_loss_fake = discriminator.train_on_batch(gen_imgs, actual_fake)
-        d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+            if count == 10:
+                actual_real = fake
+                actual_fake = real
+                count = -1
 
-        discriminator.trainable = False
+            d_loss_real = discriminator.train_on_batch(converted_imgs, actual_real)
+            d_loss_fake = discriminator.train_on_batch(gen_imgs, actual_fake)
+            d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
-        # ---------------------
-        #  Train the Generator
-        # ---------------------
+            discriminator.trainable = False
 
-        # Generate a batch of fake images
-        z = np.random.normal(0, 1, (batch_size, z_dim))
+            # ---------------------
+            #  Train the Generator
+            # ---------------------
 
-        # Generator loss
-        g_loss = combined_dcgan.train_on_batch(z, real)
-        # g_loss = combined_dcgan.train_on_batch(z, real)
+            # Generate a batch of fake images
+            z = np.random.normal(0, 1, (batch_size, z_dim))
 
-        if iteration % sample_interval == 0:
-            # Output training progress
-            print("%d [D loss: %f, acc.: %.2f%%] [G loss: %f]" %
-                  (iteration, d_loss[0], 100 * d_loss[1], g_loss[0]))
+            # Generator loss
+            g_loss = combined_dcgan.train_on_batch(z, real)
 
-            # Save losses and accuracies so they can be plotted after training
-            losses.append((d_loss[0], g_loss[0]))
-            accuracies.append(100 * d_loss[1])
+            if counter % sample_interval == 0:
+                # Output training progress
+                print("Ep. %d It. %d [D loss: %f, acc.: %.2f%%] [G loss: %f]" %
+                      (ep, it, d_loss[0], 100 * d_loss[1], g_loss[0]))
 
-            # Output generated image samples
-            sample_images(iteration)
+                # Save losses and accuracies so they can be plotted after training
+                losses.append((d_loss[0], g_loss[0]))
+                accuracies.append(100 * d_loss[1])
 
-        if iteration % 1000 == 0:
-            save_model_weights(iteration)
+                # Output generated image samples
+                sample_images(ep)
+
+            if counter % 1000 == 0:
+                counter = 0
+                save_model_weights(ep)
 
 
 def save_model_weights(iteration):
@@ -354,7 +321,7 @@ def sample_images(iteration):
     gen_imgs = generator.predict(random_noise)
 
     # Rescale images to 0-1
-    gen_imgs = 128 * (gen_imgs + 1)
+    gen_imgs = 127.5 * (gen_imgs + 1)
     gen_imgs = gen_imgs.astype(int)
     grid = Image.new('RGB', (grid_width_size * img_width, grid_width_size * img_height), (255, 255, 255))
     for i in range(0, grid_width_size):
@@ -395,23 +362,7 @@ def init_other_global_variables():
 
 # Train the GAN for the specified number of iterations
 
-
-def reset_keras():
-    sess = get_session()
-    clear_session()
-    sess.close()
-    sess = get_session()
-    print(gc.collect())  # if it's done something you should see a number being outputted
-
-    # use the same config as you used to create the session
-    config = tensorflow.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 1
-    config.gpu_options.visible_device_list = "0"
-    set_session(tensorflow.Session(config=config))
-
-
 def main():
-    # reset_keras()
     init_values_from_flags()
     init_other_global_variables()
     build_networks()
