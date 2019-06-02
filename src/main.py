@@ -30,7 +30,7 @@ training_data_folder_name = None
 img_shape = None
 img_names_list = []
 
-z_dim = 2048
+z_dim = 128
 
 generator = None
 discriminator = None
@@ -45,13 +45,15 @@ training_images = []
 def build_generator(z_dim):
     model = Sequential()
     # Reshape input into 8x8x256 tensor via a fully connected layer
-    model.add(Dense(2048 * 1 * 1, input_shape=(z_dim,)))
+    model.add(Dense(1024 * 1 * 1, input_shape=(z_dim,)))
     # Leaky ReLU
 
-    model.add(Reshape((1, 1, 2048)))
+    model.add(Reshape((1, 1, 1024)))
+    model.add(BatchNormalization(momentum=0.5))
     model.add(GaussianNoise(0.1))
     model.add(Conv2DTranspose(
-        2048, kernel_size=4))
+        1024, kernel_size=4))
+    model.add(BatchNormalization(momentum=0.5))
 
     # # Transposed convolution layer, from 8x8x256 into 16x16x128 tensor
     # # Leaky ReLU
@@ -59,39 +61,39 @@ def build_generator(z_dim):
 
     # Transposed convolution layer, from 16x16x128 to 32x32x64 tensor
     model.add(Conv2DTranspose(
-        1024, kernel_size=5, strides=2, padding='same'))
-
-    # Batch normalization
-    model.add(BatchNormalization(momentum=0.5))
-
-    # Leaky ReLU
-    model.add(Activation('relu'))
-
-    # Transposed convolution layer, from 32x32x64 to 64x64x32 tensor
-    model.add(Conv2DTranspose(
         512, kernel_size=5, strides=2, padding='same'))
+
     # Batch normalization
     model.add(BatchNormalization(momentum=0.5))
+
     # Leaky ReLU
     model.add(Activation('relu'))
 
     # Transposed convolution layer, from 32x32x64 to 64x64x32 tensor
-
     model.add(Conv2DTranspose(
         256, kernel_size=5, strides=2, padding='same'))
     # Batch normalization
     model.add(BatchNormalization(momentum=0.5))
     # Leaky ReLU
-
     model.add(Activation('relu'))
+
+    # Transposed convolution layer, from 32x32x64 to 64x64x32 tensor
+
     model.add(Conv2DTranspose(
         128, kernel_size=5, strides=2, padding='same'))
     # Batch normalization
     model.add(BatchNormalization(momentum=0.5))
     # Leaky ReLU
+
     model.add(Activation('relu'))
     model.add(Conv2DTranspose(
         64, kernel_size=5, strides=2, padding='same'))
+    # Batch normalization
+    model.add(BatchNormalization(momentum=0.5))
+    # Leaky ReLU
+    model.add(Activation('relu'))
+    model.add(Conv2DTranspose(
+        32, kernel_size=5, strides=2, padding='same'))
     # Batch normalization
     model.add(BatchNormalization(momentum=0.5))
     # Leaky ReLU
